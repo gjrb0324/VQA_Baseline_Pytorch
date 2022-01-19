@@ -18,6 +18,7 @@ class Net(nn.Module):
     def __init__(self,pretrained=True):
         super().__init__()
         resnet152=models.resnet152(pretrained=True,progress=True)
+        print('resnet loaded')
         #기존 resnet152의 마지막 fc layer 제외한 모든 layer 받아옴
         self.features = nn.ModuleList(resnet152.children())[:-1]
         #Sequential로 넣어줌
@@ -91,6 +92,23 @@ def main():
                 out = net(imgs)
 
                 j = i + imgs.size(0)
+                #"""
+                print(i,j)
+                print('original img size : {}'.format(imgs.size()))
+                import matplotlib.pyplot as plt
+                import matplotlib.image as mpimg
+                for k in range(3):
+                    img_cpu = imgs.to('cpu')[0,k,:,:]
+                    plt.imshow(img_cpu.numpy())
+                    plt.show()
+                print('out imgs\'s size : {}'.format(out.size()))
+                for k in range(3):
+                    out_cpu = out.to('cpu')[0,k,:,:]
+                    plt.imshow(out_cpu.numpy())
+                    plt.show()
+
+                #We can not get expected reuslt, we should fix ResNet
+                #"""
                 features[i:j, :, :] = out.data.cpu().numpy().astype('float16')
                 coco_ids[i:j] = ids.numpy().astype('int32')
                 i = j

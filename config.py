@@ -1,10 +1,10 @@
 # paths
-qa_path = '/c/coco_questions'  # directory containing the question and annotation jsons
-train_path = '/c/Images/train2014'  # directory of training images
-val_path = '/c/Images/val2014'  # directory of validation images
-test_path = '/c/Images/test2015'  # directory of test images
+qa_path = 'c:\\coco_questions'  # directory containing the question and annotation jsons
+train_path = 'c:\\Images\\train2014'  # directory of training images
+val_path = 'c:\\Images\\val2014'  # directory of validation images
+test_path = 'c:\\Images\\test2015'  # directory of test images
 vocabulary_path = 'vocab.json'  # path where the used vocabularies for question and answers are saved to
-preprocessed_path = './resnet-14*14.h5'
+preprocessed_path = 'preprocessed.h5'
 
 task = 'OpenEnded'
 dataset = 'mscoco'
