@@ -22,4 +22,3 @@ batch_size = 128
 initial_lr = 1e-3  # default Adam lr
 lr_halflife = 50000  # in iterations
 data_workers = 8
-max_answers = 3000
