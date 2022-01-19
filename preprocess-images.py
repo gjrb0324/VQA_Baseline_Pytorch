@@ -13,17 +13,32 @@ from resnet import resnet as caffe_resnet
 
 
 class Net(nn.Module):
-    def __init__(self):
-        super(Net, self).__init__()
-        self.model = caffe_resnet.resnet152(pretrained=True)
+    def __init__(self,pretrained=True):
+        super().__init__()
+        resnet152=models.resnet152(pretrained=True,progress=True)
+        #기존 resnet152의 마지막 fc layer 제외한 모든 layer 받아옴
+        self.features = nn.ModuleList(resnet152.children())[:-1]
+        #Sequential로 넣어줌
+        self.features = nn.Sequential(*self.features)
+        input_features = resnet152.fc.in_features #input features of previous fc layer
+        """
+        #필요하면 임의의 layer 추가 가능
 
-        def save_output(module, input, output):
-            self.buffer = output
-        self.model.layer4.register_forward_hook(save_output)
-
-    def forward(self, x):
-        self.model(x)
-        return self.buffer
+        self.fc0 = nn.Linear(in_features, 256)
+        self.fc-bn = nn.BatchNorm1d(256, eps = 1e-2)
+        """
+        #Module들의 layer xavier로 초기화\n",
+        for m in self.modules():
+            if isinstance(m,nn.Linear) or isinstance(m,nn.Conv2d):
+                init.xavier_uniform_(m.weight)
+                
+    def forward(self, input_img):
+        #'pi is three dimensional tensor from the last layer of the residual network(resnet152),14*14**2048'\n",
+        output = self.features(input_img)
+        print(output.size())
+        #l2Normalization 
+        output_img = input_img/torch.linalg.norm(output, 2, 1, keepdim=True)
+        return output_img
 
 
 def create_coco_loader(*paths):
@@ -41,9 +56,13 @@ def create_coco_loader(*paths):
 
 
 def main():
-    cudnn.benchmark = True
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    torch.manual_seed(777)
+    if device == 'cuda':
+        torch.cuda.manual_seed_all(777)
+    print(device + " is available")
 
-    net = Net().cuda()
+    net = Net().to(device)
     net.eval()
 
     loader = create_coco_loader(config.train_path, config.val_path)
@@ -60,7 +79,7 @@ def main():
 
         i = j = 0
         for ids, imgs in tqdm(loader):
-            imgs = Variable(imgs.cuda(async=True), volatile=True)
+            imgs = Variable(imgs.to(device), volatile=True)
             out = net(imgs)
 
             j = i + imgs.size(0)

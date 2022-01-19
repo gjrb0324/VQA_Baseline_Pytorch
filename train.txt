@@ -47,14 +47,14 @@ def run(net, loader, optimizer, tracker, train=False, prefix='', epoch=0):
             'volatile': not train,
             'requires_grad': False,
         }
-        v = Variable(v.cuda(async=True), **var_params)
-        q = Variable(q.cuda(async=True), **var_params)
-        a = Variable(a.cuda(async=True), **var_params)
-        q_len = Variable(q_len.cuda(async=True), **var_params)
+        v = v.clone().detach().requires_grad_(False).to(device)
+        q = q.clone().detach().requires_grad_(False).to(device)
+        a = a.clone().detach().requires_grad_(False).to(device)
+        q_len = q_len.clone().detach().requires_grad(False).to(device)
 
         out = net(v, q, q_len)
-        nll = -log_softmax(out)
-        loss = (nll * a / 10).sum(dim=1).mean()
+        loss = -torch.log(out)
+        loss = (nll * a / 10).sum(dim=1)
         acc = utils.batch_accuracy(out.data, a.data).cpu()
 
         if train:
@@ -88,6 +88,13 @@ def run(net, loader, optimizer, tracker, train=False, prefix='', epoch=0):
 
 
 def main():
+
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    torch.manual_seed(777)
+    if device == 'cuda':
+        torch.cuda.manual_seed_all(777)
+    print(device + " is available")
+
     if len(sys.argv) > 1:
         name = ' '.join(sys.argv[1:])
     else:
@@ -101,7 +108,7 @@ def main():
     train_loader = data.get_loader(train=True)
     val_loader = data.get_loader(val=True)
 
-    net = nn.DataParallel(model.Net(train_loader.dataset.num_tokens)).cuda()
+    net = nn.DataParallel(model.Net(train_loader.dataset.num_tokens)).to(device)
     optimizer = optim.Adam([p for p in net.parameters() if p.requires_grad])
 
     tracker = utils.Tracker()
