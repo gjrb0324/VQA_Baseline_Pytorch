@@ -4,12 +4,14 @@ import torch.nn as nn
 import torch.backends.cudnn as cudnn
 import torch.utils.data
 import torchvision.models as models
+import torch.nn.init as init
+import multiprocessing
 from tqdm import tqdm
+
 
 import config
 import data
 import utils
-from resnet import resnet as caffe_resnet
 
 
 class Net(nn.Module):
@@ -41,14 +43,16 @@ class Net(nn.Module):
         return output_img
 
 
-def create_coco_loader(*paths):
+def create_coco_loader(*args): #args : contain information about paths and available_workers
+    paths = args[:-1]
+    available_workers = args[-1]
     transform = utils.get_transform(config.image_size, config.central_fraction)
     datasets = [data.CocoImages(path, transform=transform) for path in paths]
     dataset = data.Composite(*datasets)
     data_loader = torch.utils.data.DataLoader(
         dataset,
         batch_size=config.preprocess_batch_size,
-        num_workers=config.data_workers,
+        num_workers= available_workers,
         shuffle=False,
         pin_memory=True,
     )
@@ -60,12 +64,15 @@ def main():
     torch.manual_seed(777)
     if device == 'cuda':
         torch.cuda.manual_seed_all(777)
+        available_workers = torch.cuda.device_count()
+    else:
+        available_workers = multiprocessing.cpu_count()
     print(device + " is available")
-
+    print("num of available workers {}".format(available_workers))
     net = Net().to(device)
     net.eval()
 
-    loader = create_coco_loader(config.train_path, config.val_path)
+    loader = create_coco_loader(config.train_path, config.val_path, available_workers)
     features_shape = (
         len(loader.dataset),
         config.output_features,
@@ -78,14 +85,15 @@ def main():
         coco_ids = fd.create_dataset('ids', shape=(len(loader.dataset),), dtype='int32')
 
         i = j = 0
-        for ids, imgs in tqdm(loader):
-            imgs = Variable(imgs.to(device), volatile=True)
-            out = net(imgs)
+        with torch.no_grad():
+            for ids, imgs in tqdm(loader):
+                imgs = imgs.to(device)
+                out = net(imgs)
 
-            j = i + imgs.size(0)
-            features[i:j, :, :] = out.data.cpu().numpy().astype('float16')
-            coco_ids[i:j] = ids.numpy().astype('int32')
-            i = j
+                j = i + imgs.size(0)
+                features[i:j, :, :] = out.data.cpu().numpy().astype('float16')
+                coco_ids[i:j] = ids.numpy().astype('int32')
+                i = j
 
 
 if __name__ == '__main__':

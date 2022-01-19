@@ -1,10 +1,10 @@
 # paths
 qa_path = 'vqa'  # directory containing the question and annotation jsons
-train_path = 'mscoco/train2014'  # directory of training images
-val_path = 'mscoco/val2014'  # directory of validation images
-test_path = 'mscoco/test2015'  # directory of test images
-preprocessed_path = './resnet-14x14.h5'  # path where preprocessed features are saved to and loaded from
+train_path = '/home/kyuh/basic_vqa/datasets/Images/train2014'  # directory of training images
+val_path = '/home/kyuh/basic_vqa/datasets/Images/val2014'  # directory of validation images
+test_path = '/home/kyuh/basic_vqa/datasets/Images/test2015'  # directory of test images
 vocabulary_path = 'vocab.json'  # path where the used vocabularies for question and answers are saved to
+preprocessed_path = './resnet-14*14.h5'
 
 task = 'OpenEnded'
 dataset = 'mscoco'

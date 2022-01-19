@@ -1,36 +1,3 @@
-#Model.py
-#Step 1. Model for Image Embedding
-#Return before fianl fc layer
-class MyResNet152(nn.Module):
-    def __init__(self,pretrained=True):
-        super().__init__()
-        resnet152=models.resnet152(pretrained=True,progress=True)
-        # Get all layers from resnet152 except final fc layer
-        self.features = nn.ModuleList(resnet152.children())[:-1]
-        #Add sequentailly
-        self.features = nn.Sequential(*self.features)
-        input_features = resnet152.fc.in_features #input features of previous fc layer
-        """
-        #We can add arbitrary layers here
-
-        self.fc0 = nn.Linear(in_features, 256)
-        self.fc-bn = nn.BatchNorm1d(256, eps = 1e-2)
-        """
-        #Initialize module's weight with xavier_uniform_
-        for m in self.modules():
-            if isinstance(m,nn.Linear) or isinstance(m,nn.Conv2d):
-                init.xavier_uniform_(m.weight)
-                
-    def forward(self, input_img):
-        #article : pi is three dimensional tensor from the last layer of the residual network(resnet152),14*14**2048
-        output = self.features(input_img)
-        print(output.size())
-        #l2Normalization 
-        output_img = input_img/torch.linalg.norm(output, 2, 1, keepdim=True)
-        return output_img
-
-
-#Step 2,Model for Question Embedding(LSTM)
 #Set this result of LSTM  as question feature
 class LSTM(nn.Module):
     def __init__(self, num_tokens):
@@ -125,7 +92,6 @@ class Attention(nn.Module):
 class Net(nn.Module):
     def __init__(self, embedding_tokens):
         super(Net,self).__init__()
-        self.visual = MyResNet152()
         self.lstm = LSTM(num_tokens)
         self.attention = Attention()
         #Inistialise weight
@@ -137,6 +103,6 @@ class Net(nn.Module):
                     
     def forward(img,question,len_question):
         q_feat = self.lstm(question, list(len_question))
-        v_feat = self.visual(img)
+        v_feat = img
         result = self.attention(q_feat,v_feat)
         return result
