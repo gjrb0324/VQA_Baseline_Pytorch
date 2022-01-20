@@ -100,7 +100,7 @@ class Attention(nn.Module):
     
 #add 3 models(lstm,visual,attention) to 1 Model
 class Net(nn.Module):
-    def __init__(self, embedding_tokens):
+    def __init__(self, num_tokens):
         super(Net,self).__init__()
         self.lstm = LSTM(num_tokens)
         self.attention = Attention()
