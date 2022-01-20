@@ -1,3 +1,13 @@
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.nn.init as init
+import torchvision.models as models
+import torchvision
+import torch.optim as optim
+import torch.nn.utils.rnn as rnn
+from tqdm import tqdm
+
 #Set this result of LSTM  as question feature
 class LSTM(nn.Module):
     def __init__(self, num_tokens):

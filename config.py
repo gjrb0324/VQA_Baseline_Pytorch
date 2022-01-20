@@ -18,6 +18,7 @@ central_fraction = 0.875  # only take this much of the centre when scaling and c
 
 # training config
 epochs = 50
+max_answers = 3000
 batch_size = 128
 initial_lr = 1e-3  # default Adam lr
 lr_halflife = 50000  # in iterations
