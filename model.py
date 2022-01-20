@@ -21,7 +21,7 @@ class LSTM(nn.Module):
         self.drop = nn.Dropout(0.5)
         self.lstm = nn.LSTM(300,1024)
         #Embedding weight 초기화
-        init.xavier_uniform(self.embedding.weight)
+        init.xavier_uniform_(self.embedding.weight)
         
         #위의 CNN에서와 같이 가중치를 xavier로, bias를 0으로 초기화
         #lstm.weight_ih_l0 : 0번째(1번쨰) layer의 input-hidden의 가중치 벡터 -> W_(ii,if,ig,io)
@@ -49,7 +49,7 @@ class LSTM(nn.Module):
 
 #Stp 3. Attention & Classifier
 class Attention(nn.Module):
-    def __init__():
+    def __init__(self):
         super().__init__()
         self.input_feat = 4096 
         self.mid_feat = 512
