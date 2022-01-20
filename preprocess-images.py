@@ -17,6 +17,7 @@ import utils
 class Net(nn.Module):
     def __init__(self,pretrained=True):
         super().__init__()
+        self.softmax = nn.Softmax(dim=-1)
         resnet152=models.resnet152(pretrained=True,progress=True)
         print('resnet loaded')
         #기존 resnet152의 마지막 fc layer 제외한 모든 layer 받아옴
@@ -38,11 +39,12 @@ class Net(nn.Module):
     def forward(self, input_img):
         #'pi is three dimensional tensor from the last layer of the residual network(resnet152),14*14**2048'\n",
         output = self.features(input_img)
-        print(output.size())
         #l2Normalization
-        print('l2 norm: {}'.format(torch.linalg.norm(output,2,1,keepdim=True)))
-        output_img = output#/torch.linalg.norm(output, 2, 1, keepdim=True)
-        return output_img
+        batch, feat, m, n = output.size() #output: [batch, feat, m, n]
+        output = output.view(batch, feat, -1).transpose(2,1).view(batch,-1,feat) #output : [batch, m*n,feat]
+        output = output/(1e+28) #pull down values in the 1e+28 world to 1e+0
+        output_img = output/torch.linalg.norm(output, 2, -1, keepdim=True)
+        return output_img.view(batch,m,n,feat) #output img: batch * 14*14*2048
 
 
 def create_coco_loader(*args): #args : contain information about paths and available_workers
@@ -77,9 +79,9 @@ def main():
     loader = create_coco_loader(config.train_path, config.val_path, available_workers)
     features_shape = (
         len(loader.dataset),
-        config.output_features,
         config.output_size,
-        config.output_size
+        config.output_size,
+        config.output_features,
     )
 
     with h5py.File(config.preprocessed_path, 'w', libver='latest') as fd:
@@ -93,23 +95,7 @@ def main():
                 out = net(imgs)
 
                 j = i + imgs.size(0)
-                #"""
-                print(i,j)
-                print('original img size : {}'.format(imgs.size()))
-                import matplotlib.pyplot as plt
-                import matplotlib.image as mpimg
-                for k in range(imgs.size(1)):
-                    img_cpu = imgs.to('cpu')[0,k,:,:]
-                    plt.imshow(img_cpu.numpy())
-                    plt.show()
-                print('out imgs\'s size : {}'.format(out.size()))
-                for k in range(out.size(1)):
-                    out_cpu = out.to('cpu')[0,k,:,:]
-                    plt.imshow(out_cpu.numpy())
-                    plt.show()
 
-                #We can not get expected reuslt, we should fix ResNet
-                #"""
                 features[i:j, :, :] = out.data.cpu().numpy().astype('float16')
                 coco_ids[i:j] = ids.numpy().astype('int32')
                 i = j
