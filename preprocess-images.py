@@ -20,7 +20,7 @@ class Net(nn.Module):
         resnet152=models.resnet152(pretrained=True,progress=True)
         print('resnet loaded')
         #기존 resnet152의 마지막 fc layer 제외한 모든 layer 받아옴
-        self.features = nn.ModuleList(resnet152.children())[:-1]
+        self.features = nn.ModuleList(resnet152.children())[:-2]
         #Sequential로 넣어줌
         self.features = nn.Sequential(*self.features)
         input_features = resnet152.fc.in_features #input features of previous fc layer
@@ -39,8 +39,9 @@ class Net(nn.Module):
         #'pi is three dimensional tensor from the last layer of the residual network(resnet152),14*14**2048'\n",
         output = self.features(input_img)
         print(output.size())
-        #l2Normalization 
-        output_img = input_img/torch.linalg.norm(output, 2, 1, keepdim=True)
+        #l2Normalization
+        print('l2 norm: {}'.format(torch.linalg.norm(output,2,1,keepdim=True)))
+        output_img = output#/torch.linalg.norm(output, 2, 1, keepdim=True)
         return output_img
 
 
@@ -97,12 +98,12 @@ def main():
                 print('original img size : {}'.format(imgs.size()))
                 import matplotlib.pyplot as plt
                 import matplotlib.image as mpimg
-                for k in range(3):
+                for k in range(imgs.size(1)):
                     img_cpu = imgs.to('cpu')[0,k,:,:]
                     plt.imshow(img_cpu.numpy())
                     plt.show()
                 print('out imgs\'s size : {}'.format(out.size()))
-                for k in range(3):
+                for k in range(out.size(1)):
                     out_cpu = out.to('cpu')[0,k,:,:]
                     plt.imshow(out_cpu.numpy())
                     plt.show()
