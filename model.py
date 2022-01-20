@@ -47,7 +47,7 @@ class Attention(nn.Module):
         self.conv1 = nn.Conv2d(self.input_feat,self.mid_feat,1)
         self.conv2 = nn.Conv2d(self.mid_feat, self.output_feat, 1)
         self.relu = nn.ReLU(inplace=True)
-        self.softmax = nn.Softmax(dim=-1)
+        self.softmax = nn.Softmax(dim=0)
         self.fc1 = nn.Linear(3072,1024)
         self.fc2 = nn.Linear(1024,3000)
         self.drop = nn.Dropout(0.5)
