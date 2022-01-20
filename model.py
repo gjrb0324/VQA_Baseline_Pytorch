@@ -35,7 +35,7 @@ class LSTM(nn.Module):
         for w in self.lstm.weight_hh_l0.chunk(4,0):
             init.xavier_uniform_(w)
         self.lstm.bias_ih_l0.data.zero_()
-        self.lstm.bias._hh_l0.data.zero_()
+        self.lstm.bias_hh_l0.data.zero_()
     def forward(self,q,q_len):
         embedded = self.embedding(q)
         tanhed = self.tanh(self.drop(embedded))
