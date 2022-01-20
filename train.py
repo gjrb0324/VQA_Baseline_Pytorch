@@ -108,6 +108,7 @@ def main():
     val_loader = data.get_loader(val=True)
 
     net = nn.DataParallel(model.Net(train_loader.dataset.num_tokens)).to(device)
+    print('Net loaded: Success')
     optimizer = optim.Adam([p for p in net.parameters() if p.requires_grad])
 
     tracker = utils.Tracker()
