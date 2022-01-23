@@ -13,7 +13,7 @@ import config
 import utils
 
 
-def get_loader(train=False, val=False, test=False):
+def get_loader(real_num_workers,train=False, val=False, test=False):
     """ Returns a data loader for the desired split """
     assert train + val + test == 1, 'need to set exactly one of {train, val, test} to True'
     split = VQA(
@@ -27,7 +27,7 @@ def get_loader(train=False, val=False, test=False):
         batch_size=config.batch_size,
         shuffle=train,  # only shuffle the data in training
         pin_memory=True,
-        num_workers=config.data_workers,
+        num_workers=0, #real_num_workers,
         collate_fn=collate_fn,
     )
     return loader

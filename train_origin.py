@@ -25,7 +25,7 @@ def update_learning_rate(optimizer, iteration):
 total_iterations = 0
 
 
-def run(net, device, loader, optimizer, tracker, train=False, prefix='', epoch=0):
+def run(net, loader, optimizer, tracker, train=False, prefix='', epoch=0):
     """ Run an epoch over the given loader """
     if train:
         net.train()
@@ -53,7 +53,7 @@ def run(net, device, loader, optimizer, tracker, train=False, prefix='', epoch=0
 
         out = net(v, q, q_len)
         loss = -torch.log(out)
-        loss = (loss * a / 10).sum(dim=1)
+        loss = (nll * a / 10).sum(dim=1)
         acc = utils.batch_accuracy(out.data, a.data).cpu()
 
         if train:
@@ -92,11 +92,7 @@ def main():
     torch.manual_seed(777)
     if device == 'cuda':
         torch.cuda.manual_seed_all(777)
-        available_workers = torch.cuda.device_count()
-    else :
-        available_workers = multiprocessing.cpu_count()
     print(device + " is available")
-    print('num of workers {}'.format(available_workers))
 
     if len(sys.argv) > 1:
         name = ' '.join(sys.argv[1:])
@@ -108,10 +104,10 @@ def main():
 
     cudnn.benchmark = True
 
-    train_loader = data.get_loader(available_workers,train=True)
-    val_loader = data.get_loader(available_workers, val=True)
+    train_loader = data.get_loader(train=True)
+    val_loader = data.get_loader(val=True)
 
-    net = nn.DataParallel(model.Net(device,train_loader.dataset.num_tokens)).to(device)
+    net = nn.DataParallel(model.Net(train_loader.dataset.num_tokens)).to(device)
     print('Net loaded: Success')
     optimizer = optim.Adam([p for p in net.parameters() if p.requires_grad])
 
@@ -119,8 +115,8 @@ def main():
     config_as_dict = {k: v for k, v in vars(config).items() if not k.startswith('__')}
 
     for i in range(config.epochs):
-        _ = run(net,device, train_loader, optimizer, tracker, train=True, prefix='train', epoch=i)
-        r = run(net,device, val_loader, optimizer, tracker, train=False, prefix='val', epoch=i)
+        _ = run(net, train_loader, optimizer, tracker, train=True, prefix='train', epoch=i)
+        r = run(net, val_loader, optimizer, tracker, train=False, prefix='val', epoch=i)
 
         results = {
             'name': name,

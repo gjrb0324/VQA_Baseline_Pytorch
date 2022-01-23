@@ -49,61 +49,80 @@ class LSTM(nn.Module):
 
 #Stp 3. Attention & Classifier
 class Attention(nn.Module):
-    def __init__(self):
+    def __init__(self,device):
         super().__init__()
+        self.device = device
         self.input_feat = 4096 
         self.mid_feat = 512
         self.output_feat = 2
         self.conv1 = nn.Conv2d(self.input_feat,self.mid_feat,1)
         self.conv2 = nn.Conv2d(self.mid_feat, self.output_feat, 1)
         self.relu = nn.ReLU(inplace=True)
-        self.softmax = nn.Softmax(dim=0)
+        self.softmax = nn.Softmax(dim=-1)
         self.fc1 = nn.Linear(3072,1024)
         self.fc2 = nn.Linear(1024,3000)
         self.drop = nn.Dropout(0.5)
-    def forward(q_feat,v_feat):
+    def forward(self,q_feat,v_feat):
         #1. We concatenate tiled LSTM state with image features over depth dimension
         #So, Tile lstm state(Question feature)
         #현재 q_feat: 1*batch_sie *1024
+        #현재 v_feat: batch_size * 14* 14* 2048
         """
         비교해볼 것:처음부터 v와 q의 out_feat수를 맞춰주면 어떻게 되나
         """
         #tiled_q_feat: tile q_feat 1*1024 -> 14*14*2048
-        tiled_q_feat = q_feat.tile((14,14,2))
+        b, n, m, f = v_feat.size()
+        att = torch.empty(b,n,m,f*2).to(self.device)
+        for i in range(b):
+            q_feat_i = q_feat[i,:]
+            v_feat_i = v_feat[i,:,:,:] #v_feat_i : 14*14*2048
+            q_feat_i = q_feat_i.tile((14,14,2)) #q_feat_i: 1*1024 -> 14*14*2048
+            att[i,:,:,:] = torch.cat((v_feat_i,q_feat_i),-1)
+            
+        #att : batc* 14*14*4096 -> batch*4096 * 14*14
+        att = att.transpose(3,1)
         #Concat
-        att = torch.cat((v_feat,tiled_q_feat),2)
         #Pass Conv1 & ReLU
         att = self.relu(self.conv1(self.drop(att)))
         #Pass Conv2 & softmax
         att = self.conv2(self.drop(att))
-        #Output: att = 14*14*2 
+        #Output: att = 2*14*14 
         #We use thiese distributinos to compute two image glimpses by computing the weighted average of image featuresw
         #1*1 batch 이유 : image와의 elementwise multiplication 위해서
         #n*n*(#feat)을 (n^2)*(#feat)으로 바꿔주기 -> 이쪽이 논문의 취지에 조금 더 부합(counts region by l)
-        att = att.view(-1,2) #14*14*2 -> 196*2
+        b,f,n,m = att.size() #att = batch*feature *n *m
+        att = att.view(b,f,-1) #batch*2*14*14 -> batch*2*196
+        att= att.transpose(1,2) #batch*2*196 -> batch*196*2
         att = self.softmax(att)
-        v_feat = v_feat.view(-1,2048) # image feature: 14*14*2048 -> 196*2048
-        x = torch.empty(2,2048)
-        for i in range(0,2):
-            att_i = att[:,i].view(-1,1) # 196*1
-            x_i = att_i * v_feat
-            x_i = x_i.sum(dim=0)
-            x[i,:] = x_i   #feature glimpse x => 2*2048
+        v_feat = v_feat.view(b,-1,2048) # image feature: batch*14*14*2048 -> batch*196*2048
+        x = torch.empty(b,2048,2).to(self.device)
+        for j in range(b):
+            for i in range(0,2):
+                att_i = att[j,:,i].view(-1,1) # 196*1
+                x_i = att_i * v_feat[j,:,:]  #196*1 * 196*2048
+                x_i = x_i.sum(dim=0)
+                x[j,:,i] = x_i   #feature glimpse x => batch*2048*2
         
         #Concat image glimpses witht the state of LSTM
-        cat = torch.cat((x, q_feat.tile(2,1)), -1)
+        #x = batch * 2048*2
+        #q_feat: batch * 1024*1
+        q_feat = q_feat.view(b,-1,1)
+        cat = torch.cat((x, q_feat.tile(1,1,2)), 1) #cat = batch * 3072 *2
+        cat = cat.transpose(1,2) #cat = batch * 2 * 3072
         #Then pass through a fully connected layer of size 1024 with ReLU
-        att = self.relu(self.fc1(self.drop(att)))
+        print('size of cat: {}'.format(cat.size()))
+        att = self.relu(self.fc1(self.drop(cat)))
         #The ouptut is fed to a linear layer of size M = 3000 followed by softmax 
         result = self.softmax(self.fc2(self.drop(att)))
         return result # The output will be 2*3000 
     
 #add 3 models(lstm,visual,attention) to 1 Model
 class Net(nn.Module):
-    def __init__(self, num_tokens):
+    def __init__(self, device, num_tokens):
         super(Net,self).__init__()
+        self.device = device
         self.lstm = LSTM(num_tokens)
-        self.attention = Attention()
+        self.attention = Attention(self.device)
         #Inistialise weight
         for m in self.modules():
             if isinstance(m,nn.Linear) or isinstance(m,nn.Conv2d):
@@ -111,8 +130,8 @@ class Net(nn.Module):
                 if m.bias is not None:
                     m.bias.data.zero_()
                     
-    def forward(img,question,len_question):
-        q_feat = self.lstm(question, list(len_question))
-        v_feat = img
-        result = self.attention(q_feat,v_feat)
+    def forward(self,img,question,len_question):
+        q_feat = self.lstm(question, list(len_question)).to(self.device)
+        v_feat = img.to(self.device)
+        result = self.attention(q_feat,v_feat).to(self.device)
         return result

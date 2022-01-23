@@ -1,10 +1,10 @@
 # paths
-qa_path = 'C:\\coco_questions'  # directory containing the question and annotation jsons
-train_path = 'C:\\Images\train2014'  # directory of training images
-val_path = 'C:\\Images\val2014'  # directory of validation images
-test_path = 'C:\\Images\test2015'  # directory of test images
-vocabulary_path = 'vocab.json'  # path where the used vocabularies for question and answers are saved to
-preprocessed_path = 'preprocessed.h5'
+qa_path = 'C:\\coco_questoins'  # directory containing the question and annotation jsons
+train_path = 'C:\\Images\\train2014'  # directory of training images
+val_path = 'C:\\Images\\val2014'  # directory of validation images
+test_path = 'C:\\Images\\test2015'  # directory of test images
+vocabulary_path = 'Z:\\gyu\\VQA_Baseline_Pytorch\\vocab.json'  # path where the used vocabularies for question and answers are saved to
+preprocessed_path = 'Z:\\gyu\\\VQA_Baseline_Pytorch\\preprocessed.h5'
 
 task = 'OpenEnded'
 dataset = 'mscoco'
