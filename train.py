@@ -52,6 +52,7 @@ def run(net, device, loader, optimizer, tracker, train=False, prefix='', epoch=0
         q_len = q_len.to(device)
 
         out = net(v, q, q_len)
+        print('size of a {}, size of out {}'.format(a.size(),out.size()))
         loss = -torch.log(out)
         loss = (loss * a / 10).sum(dim=1)
         acc = utils.batch_accuracy(out.data, a.data).cpu()
@@ -61,7 +62,7 @@ def run(net, device, loader, optimizer, tracker, train=False, prefix='', epoch=0
             update_learning_rate(optimizer, total_iterations)
 
             optimizer.zero_grad()
-            loss.backward()
+            loss.mean().backward()
             optimizer.step()
 
             total_iterations += 1

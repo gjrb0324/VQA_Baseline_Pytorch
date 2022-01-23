@@ -59,7 +59,7 @@ class Attention(nn.Module):
         self.conv2 = nn.Conv2d(self.mid_feat, self.output_feat, 1)
         self.relu = nn.ReLU(inplace=True)
         self.softmax = nn.Softmax(dim=-1)
-        self.fc1 = nn.Linear(3072,1024)
+        self.fc1 = nn.Linear(6144,1024)
         self.fc2 = nn.Linear(1024,3000)
         self.drop = nn.Dropout(0.5)
     def forward(self,q_feat,v_feat):
@@ -108,9 +108,8 @@ class Attention(nn.Module):
         #q_feat: batch * 1024*1
         q_feat = q_feat.view(b,-1,1)
         cat = torch.cat((x, q_feat.tile(1,1,2)), 1) #cat = batch * 3072 *2
-        cat = cat.transpose(1,2) #cat = batch * 2 * 3072
+        cat = cat.view(b,-1) #cat = batch * (2 * 3072)
         #Then pass through a fully connected layer of size 1024 with ReLU
-        print('size of cat: {}'.format(cat.size()))
         att = self.relu(self.fc1(self.drop(cat)))
         #The ouptut is fed to a linear layer of size M = 3000 followed by softmax 
         result = self.softmax(self.fc2(self.drop(att)))
