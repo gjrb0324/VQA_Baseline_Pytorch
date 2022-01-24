@@ -103,7 +103,7 @@ def main():
     else:
         from datetime import datetime
         name = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
-    target_name = os.path.join('logs', '{}.pth'.format(name))
+    target_name = os.path.join('C:\\temp_vqa\\pytorch-vqa\\VQA_Baseline_Pytorch\\logs', '{}.pth'.format(name))
     print('will save to {}'.format(target_name))
 
     cudnn.benchmark = True
