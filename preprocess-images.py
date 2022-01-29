@@ -6,7 +6,10 @@ import torch.utils.data
 import torchvision.models as models
 import torch.nn.init as init
 import multiprocessing
+import numpy as np
+import torchvision
 from tqdm import tqdm
+from torchvision import datasets, transforms  as T
 
 
 import config
@@ -30,27 +33,27 @@ class Net(nn.Module):
 
         self.fc0 = nn.Linear(in_features, 256)
         self.fc-bn = nn.BatchNorm1d(256, eps = 1e-2)
-        """
+        
         #Module들의 layer xavier로 초기화\n",
         for m in self.modules():
             if isinstance(m,nn.Linear) or isinstance(m,nn.Conv2d):
                 init.xavier_uniform_(m.weight)
-                
+        """        
     def forward(self, input_img):
         #'pi is three dimensional tensor from the last layer of the residual network(resnet152),14*14**2048'\n",
         output = self.features(input_img)
         #l2Normalization
         batch, feat, m, n = output.size() #output: [batch, feat, m, n]
         output = output.view(batch, feat, -1).transpose(2,1).view(batch,-1,feat) #output : [batch, m*n,feat]
-        output = output/(1e+28) #pull down values in the 1e+28 world to 1e+0
-        output_img = output/torch.linalg.norm(output, 2, -1, keepdim=True)
+        #output = output/(1e+28) #pull down values in the 1e+28 world to 1e+0
+        output_img = output/torch.norm(output, 2, -1, keepdim=True)
         return output_img.view(batch,m,n,feat) #output img: batch * 14*14*2048
 
 
 def create_coco_loader(*args): #args : contain information about paths and available_workers
-    paths = args[:-1]
-    available_workers = args[-1]
-    transform = utils.get_transform(config.image_size, config.central_fraction)
+    paths = args[:-2]
+    available_workers = args[-2]
+    transform = args[-1]
     datasets = [data.CocoImages(path, transform=transform) for path in paths]
     dataset = data.Composite(*datasets)
     data_loader = torch.utils.data.DataLoader(
@@ -73,10 +76,12 @@ def main():
         available_workers = multiprocessing.cpu_count()
     print(device + " is available")
     print("num of available workers {}".format(available_workers))
-    net = Net().to(device)
+    net = nn.DataParallel(Net()).to(device)
     net.eval()
 
-    loader = create_coco_loader(config.train_path, config.val_path, available_workers)
+    transform = T.Compose([T.Resize((config.image_size,config.image_size)), T.ToTensor(), T.Normalize((0.5,0.5,0.5),(0.5,0.5,0.5))])
+    loader = create_coco_loader(config.train_path, config.val_path, available_workers, transform)
+
     features_shape = (
         len(loader.dataset),
         config.output_size,

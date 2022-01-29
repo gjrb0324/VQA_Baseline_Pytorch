@@ -104,10 +104,10 @@ def main():
 
     cudnn.benchmark = True
 
-    train_loader = data.get_loader(train=True)
-    val_loader = data.get_loader(val=True)
+    train_loader = data.get_loader(0,train=True)
+    val_loader = data.get_loader(0,val=True)
 
-    net = nn.DataParallel(model.Net(train_loader.dataset.num_tokens)).to(device)
+    net = nn.DataParallel(model.Net(device,train_loader.dataset.num_tokens)).to(device)
     print('Net loaded: Success')
     optimizer = optim.Adam([p for p in net.parameters() if p.requires_grad])
 

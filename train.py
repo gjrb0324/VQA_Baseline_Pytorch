@@ -9,7 +9,10 @@ import torch.optim as optim
 from torch.autograd import Variable
 import torch.backends.cudnn as cudnn
 from tqdm import tqdm
+from torch.utils.tensorboard import SummaryWriter
 
+writer = SummaryWriter()
+import os
 import config
 import data
 import model
@@ -21,9 +24,7 @@ def update_learning_rate(optimizer, iteration):
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
 
-
 total_iterations = 0
-
 
 def run(net, device, loader, optimizer, tracker, train=False, prefix='', epoch=0):
     """ Run an epoch over the given loader """
@@ -38,52 +39,73 @@ def run(net, device, loader, optimizer, tracker, train=False, prefix='', epoch=0
         accs = []
 
     tq = tqdm(loader, desc='{} E{:03d}'.format(prefix, epoch), ncols=0)
-    loss_tracker = tracker.track('{}_loss'.format(prefix), tracker_class(**tracker_params))
+    #loss_tracker = tracker.track('{}_loss'.format(prefix), tracker_class(**tracker_params))
     acc_tracker = tracker.track('{}_acc'.format(prefix), tracker_class(**tracker_params))
+    
+    if train:
+        #loss = 0.0
+        for v, q, a, idx, q_len in tq:
+            v = v.to(device)
+            q = q.to(device)
+            a = a.to(device)
+            q_len = q_len.to(device)
+            
+            optimizer.zero_grad()
 
-    for v, q, a, idx, q_len in tq:
-        var_params = {
-            'volatile': not train,
-            'requires_grad': False,
-        }
-        v = v.to(device)
-        q = q.to(device)
-        a = a.to(device)
-        q_len = q_len.to(device)
+            #try new loss fucntion to avoid NaN
+            out = net(v, q, q_len)
 
-        out = net(v, q, q_len)
-        loss = -torch.log(out)
-        loss = (loss * a / 10).sum(dim=1)
-        acc = utils.batch_accuracy(out.data, a.data).cpu()
-
-        if train:
+            #transform a(one hot) to not one-hot
+            a = a.argmax(dim=-1) #a : a[batch]= answer_index
+ 
+            mini_batch_loss = 0.0
+            for i in range(out.size(0)): #for each elements in batch,
+                mini_batch_loss += -torch.log(out[i][a[i]]) #nll : negative log likelihood
+            mini_batch_loss /= float(out.size(0))
+			
             global total_iterations
+            #loss = mini_batch_loss + loss * total_iterations
             update_learning_rate(optimizer, total_iterations)
 
             optimizer.zero_grad()
-            loss.mean().backward()
+            mini_batch_loss.backward()
             optimizer.step()
 
             total_iterations += 1
-        else:
+            #loss = loss / total_iterations            
+
+            fmt = '{:.4f}'.format
+            tq.set_postfix(mini_batch_loss=fmt(mini_batch_loss)) #total_loss=fmt(loss))
+            writer.add_scalar("Loss/train", mini_batch_loss, total_iterations-1)
+
+    else:
+        eval_iterations = epoch*1890 + 1
+        with torch.no_grad():
+            for v,q,a,idx, q_len in tq:
+                v = v.to(device)
+                q = q.to(device)
+                a = a.to(device)
+                q_len = q_len.to(device)
+
+                out = net(v,q,q_len)
+                acc = utils.batch_accuracy(out.data, a.data).cpu()
             # store information about evaluation of this minibatch
-            _, answer = out.data.cpu().max(dim=1)
-            answ.append(answer.view(-1))
-            accs.append(acc.view(-1))
-            idxs.append(idx.view(-1).clone())
+                _, answer = out.data.cpu().max(dim=1)
+                answ.append(answer.view(-1))
+                accs.append(acc.view(-1))
+                idxs.append(idx.view(-1).clone())
 
-        loss_tracker.append(loss.data[0])
-        # acc_tracker.append(acc.mean())
-        for a in acc:
-            acc_tracker.append(a.item())
-        fmt = '{:.4f}'.format
-        tq.set_postfix(loss=fmt(loss_tracker.mean.value), acc=fmt(acc_tracker.mean.value))
+                for a in acc:
+                    acc_tracker.append(a.item())
+                fmt = '{:.4f}'.format
+                tq.set_postfix(acc=fmt(acc_tracker.mean.value))
+                writer.add_scalar("Accuracy/eval", acc_tracker.mean.value, eval_iterations)
+                eval_iterations+=1
 
-    if not train:
-        answ = list(torch.cat(answ, dim=0))
-        accs = list(torch.cat(accs, dim=0))
-        idxs = list(torch.cat(idxs, dim=0))
-        return answ, accs, idxs
+            answ = list(torch.cat(answ, dim=0))
+            accs = list(torch.cat(accs, dim=0))
+            idxs = list(torch.cat(idxs, dim=0))
+            return answ, accs, idxs
 
 
 def main():
@@ -94,16 +116,19 @@ def main():
         torch.cuda.manual_seed_all(777)
         available_workers = torch.cuda.device_count()
     else :
-        available_workers = multiprocessing.cpu_count()
+        available_workers = len(os.sched_getaffinity(0))
     print(device + " is available")
     print('num of workers {}'.format(available_workers))
-
+    
+    #Open files for writting loss and accuracy
+    
+    
     if len(sys.argv) > 1:
         name = ' '.join(sys.argv[1:])
     else:
         from datetime import datetime
         name = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
-    target_name = os.path.join('C:\\temp_vqa\\pytorch-vqa\\VQA_Baseline_Pytorch\\logs', '{}.pth'.format(name))
+    target_name = os.path.join('/data/VQA_Baseline_Pytorch/logs', '{}.pth'.format(name))
     print('will save to {}'.format(target_name))
 
     cudnn.benchmark = True
@@ -135,7 +160,7 @@ def main():
             'vocab': train_loader.dataset.vocab,
         }
         torch.save(results, target_name)
-
+    writer.close()
 
 if __name__ == '__main__':
     main()
