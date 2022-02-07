@@ -61,14 +61,22 @@ def run(net, device, loader, optimizer, tracker, train=False, prefix='', epoch=0
             mini_batch_loss = 0.0
             for i in range(out.size(0)): #for each elements in batch,
                 mini_batch_loss += -torch.log(out[i][a[i]]) #nll : negative log likelihood
+                if mini_batch_loss.isnan()== True:
+                    print('Weight of net : {}\n'.format(net.state_dict()))
+                    sys.exit('\n nan loss detected while calculating mini_batch_loss')
+
             mini_batch_loss /= float(out.size(0))
-			
+            if mini_batch_loss.isnan() == True:
+                print('Weight of net : {}\n'.format(net.state_dict()))
+                sys.exit('\n nan loss detected after calculating mini_batch_loss')
+
             global total_iterations
             #loss = mini_batch_loss + loss * total_iterations
             update_learning_rate(optimizer, total_iterations)
 
             optimizer.zero_grad()
             mini_batch_loss.backward()
+            torch.nn.utils.clip_grad_norm_(net.parameters(), 5)
             optimizer.step()
 
             total_iterations += 1
@@ -105,6 +113,7 @@ def run(net, device, loader, optimizer, tracker, train=False, prefix='', epoch=0
             answ = list(torch.cat(answ, dim=0))
             accs = list(torch.cat(accs, dim=0))
             idxs = list(torch.cat(idxs, dim=0))
+            print('\nanswer: {}, predicted {}, idx {}'.format(a,out,idx))
             return answ, accs, idxs
 
 
@@ -146,7 +155,7 @@ def main():
     for i in range(config.epochs):
         _ = run(net,device, train_loader, optimizer, tracker, train=True, prefix='train', epoch=i)
         r = run(net,device, val_loader, optimizer, tracker, train=False, prefix='val', epoch=i)
-
+        '''
         results = {
             'name': name,
             'tracker': tracker.to_dict(),
@@ -160,6 +169,7 @@ def main():
             'vocab': train_loader.dataset.vocab,
         }
         torch.save(results, target_name)
+        '''
     writer.close()
 
 if __name__ == '__main__':

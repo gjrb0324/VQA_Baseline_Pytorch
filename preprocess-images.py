@@ -79,7 +79,7 @@ def main():
     net = nn.DataParallel(Net()).to(device)
     net.eval()
 
-    transform = T.Compose([T.Resize((config.image_size,config.image_size)), T.ToTensor(), T.Normalize((0.5,0.5,0.5),(0.5,0.5,0.5))])
+    transform = T.Compose([T.CenterCrop((299,299)), T.Resize((config.image_size,config.image_size)), T.ToTensor(), T.Normalize((0.5,0.5,0.5),(0.5,0.5,0.5))])
     loader = create_coco_loader(config.train_path, config.val_path, available_workers, transform)
 
     features_shape = (

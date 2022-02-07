@@ -18,8 +18,7 @@ class LSTM(nn.Module):
         #라고 생각했는데 밑에서 xavier_초기화 해줘서 padding_idx무쓸모, 대체 왜 쓴거지?
         self.embedding = nn.Embedding(num_tokens, 300)
         self.tanh = nn.Tanh()
-        self.drop = nn.Dropout(0.5)
-        self.lstm = nn.LSTM(300,1024)
+        self.lstm = nn.LSTM(300,1024,batch_first=True,dropout=0.5)
         #Embedding weight 초기화
         init.xavier_uniform_(self.embedding.weight)
         
@@ -27,25 +26,27 @@ class LSTM(nn.Module):
         #lstm.weight_ih_l0 : 0번째(1번쨰) layer의 input-hidden의 가중치 벡터 -> W_(ii,if,ig,io)
         #lstm.weight_hh_l0 : 0번째(1번째) layer의 hidden-hidden의 가중치 벡터 - > W_(hi,hf,hg,ho)
         #W_(i,f,g,o) : 각각 input, forget, cell, cell, output gate의 가중치들
-        #원래 [[i_1],[i_2]...[i_n]],[[f_1],[f_2]...[f_n]],[[g_1]..]..[..[o_n]],
+        #원래 [[i_1],[i_2]...[i_n]],[[1f_1],[f_2]...[f_n]],[[g_1]..]..[..[o_n]],
         #([i_1]...[o_n]은 모두 벡터)이던 애를 
         #chunk로 [i(m*n)], [f(m*n)],[g(m*n)],[o(m*n)]로 묶어내서 같이 xavier 초기화
         for w in self.lstm.weight_ih_l0.chunk(4,0):
             init.xavier_uniform_(w)
         for w in self.lstm.weight_hh_l0.chunk(4,0):
             init.xavier_uniform_(w)
+        
         self.lstm.bias_ih_l0.data.zero_()
         self.lstm.bias_hh_l0.data.zero_()
+    
     def forward(self,q,q_len):
         embedded = self.embedding(q)
-        tanhed = self.tanh(self.drop(embedded))
+        tanhed = self.tanh(embedded)
         packed = rnn.pack_padded_sequence(tanhed, q_len ,batch_first=True)
         output, (h,c) = self.lstm(packed)
         #c를 사용하는 이유: 우리는 질문 전체를 관통하는(cell state) 특징을 얻고 싶으므로
         #output 썼으면 다음에 나올거 같은 놈을 쓰는거고
         #h는 대체 언제쓰는거지
         #따라서 c는 *1024
-        return c.squeeze(0)
+        return h.squeeze(0)
 
 #Stp 3. Attention & Classifier
 class Attention(nn.Module):
@@ -59,9 +60,9 @@ class Attention(nn.Module):
         self.conv2 = nn.Conv2d(self.mid_feat, self.output_feat, 1)
         self.relu = nn.ReLU(inplace=True)
         self.softmax = nn.Softmax(dim=-1)
-        self.fc1 = nn.Linear(6144,1024)
+        self.fc1 = nn.Linear(5120,1024)
         self.fc2 = nn.Linear(1024,3000)
-        self.drop = nn.Dropout(0.5)
+        self.drop = nn.Dropout(0.5)	
     def forward(self,q_feat,v_feat):
         #1. We concatenate tiled LSTM state with image features over depth dimension
         #So, Tile lstm state(Question feature)
@@ -92,28 +93,20 @@ class Attention(nn.Module):
         #n*n*(#feat)을 (n^2)*(#feat)으로 바꿔주기 -> 이쪽이 논문의 취지에 조금 더 부합(counts region by l)
         b,f,n,m = att.size() #att = batch*feature *n *m
         att = att.view(b,f,-1) #batch*2*14*14 -> batch*2*196
-        att= att.transpose(1,2) #batch*2*196 -> batch*196*2
-        att = self.softmax(att)
+        att = self.softmax(att) #softmax over spatial dimension
+        #Weighted sum of attention distribution and v_feat
         v_feat = v_feat.view(b,-1,2048) # image feature: batch*14*14*2048 -> batch*196*2048
-        x = torch.empty(b,2048,2).to(self.device)
-        for j in range(b):
-            for i in range(0,2):
-                att_i = att[j,:,i].view(-1,1) # 196*1
-                x_i = att_i * v_feat[j,:,:]  #196*1 * 196*2048
-                x_i = x_i.sum(dim=0)
-                x[j,:,i] = x_i   #feature glimpse x => batch*2048*2
+        x1 = att[:,0,:].view(b,-1,1) * v_feat.view(b,-1,2048)
+        x2 = att[:,1,:].view(b,-1,1) * v_feat.view(b,-1,2048)
+        x1 = x1.sum(dim=-2) #sum over spatial dimension    
+        x2 = x2.sum(dim=-2)
         
-        #Concat image glimpses witht the state of LSTM
-        #x = batch * 2048*2
-        #q_feat: batch * 1024*1
-        q_feat = q_feat.view(b,-1,1)
-        cat = torch.cat((x, q_feat.repeat(1,1,2)), 1) #cat = batch * 3072 *2
-        cat = cat.view(b,-1) #cat = batch * (2 * 3072)
-        #Then pass through a fully connected layer of size 1024 with ReLU
-        att = self.relu(self.fc1(self.drop(cat)))
-        #The ouptut is fed to a linear layer of size M = 3000 followed by softmax 
-        result = self.softmax(self.fc2(self.drop(att)))
-        return result # The output will be 2*3000 
+        #x1, x2 now : attentino value with the shape batch*2048
+        con_feat = torch.cat((x1,x2, q_feat), dim=-1) 
+        con_feat = self.relu(self.fc1(self.drop(con_feat)))
+        con_feat = self.softmax(self.fc2(self.drop(con_feat)))
+
+        return con_feat # The output will be softmaxed batch*3000 
     
 #add 3 models(lstm,visual,attention) to 1 Model
 class Net(nn.Module):
