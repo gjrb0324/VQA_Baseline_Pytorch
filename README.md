@@ -19,3 +19,9 @@ Also, use gradient clipping to prevent result from gradient exploding.
 4. Run training and evaluating steps with 'python train.py' command
 
 
+### Accuracy and Train loss
+
+### Sample Result###
+![VQA_Baseline_result_1](https://user-images.githubusercontent.com/48676255/156728446-444ceafc-81e8-4a27-8d9e-f687cb1c8ed9.PNG)
+![VQA_Baseline_result_2](https://user-images.githubusercontent.com/48676255/156728454-ff802123-926b-4e13-ba9b-c6c5c804e938.PNG)
+![VQA_Baseline_result_3](https://user-images.githubusercontent.com/48676255/156728464-ddbd360a-378d-4291-99ba-2fb7e926b904.PNG)
