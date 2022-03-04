@@ -20,8 +20,15 @@ Also, use gradient clipping to prevent result from gradient exploding.
 
 
 ### Accuracy and Train loss
+![VQA_Baseline_Acc_Loss](https://user-images.githubusercontent.com/48676255/156728840-32d58692-cb90-4bf5-9f6f-10a8033ecd7a.png)
 
-### Sample Result###
-![VQA_Baseline_result_1](https://user-images.githubusercontent.com/48676255/156728446-444ceafc-81e8-4a27-8d9e-f687cb1c8ed9.PNG)
-![VQA_Baseline_result_2](https://user-images.githubusercontent.com/48676255/156728454-ff802123-926b-4e13-ba9b-c6c5c804e938.PNG)
-![VQA_Baseline_result_3](https://user-images.githubusercontent.com/48676255/156728464-ddbd360a-378d-4291-99ba-2fb7e926b904.PNG)
+### Sample Result
+![VQA_Baseline_result_1](https://user-images.githubusercontent.com/48676255/156728952-f658e878-083c-41aa-9663-f1d8ec7f4331.PNG)
+left-above : question 1,2,3
+left-below : question 4
+![VQA_Baseline_result_2](https://user-images.githubusercontent.com/48676255/156729083-64255102-71c8-4aea-b31e-f1a9dbb43fe8.PNG)
+left-above : question 1,2
+left-below : question 3,4
+![VQA_Baseline_result_3](https://user-images.githubusercontent.com/48676255/156729124-0286a265-667b-43ad-9163-81bf03c5a7e7.PNG)
+left-above : question 1,2
+left-below : question 3,4
